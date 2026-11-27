@@ -11,6 +11,7 @@ TILT = 0.30
 CAM_DIST = 4.0
 MESSAGE = "for you ♥"
 NUM_HEARTS = 18
+FLOWERS = "roses"  # "roses" or "mixed" (the original daisies + tulips)
 
 WHITE = [244, 248, 251, 254, 255, 231]
 PINK = [125, 162, 168, 205, 211, 218, 225]
@@ -43,6 +44,10 @@ DISC_TYPES = [
     (ORANGE, DARK_CENTER, 9),
 ]
 TULIP_COLORS = [RED, PINK, YELLOW]
+ROSE_RED = [52, 88, 124, 160, 196, 197, 203]
+ROSE_PINK = [89, 125, 162, 168, 205, 211, 218]
+ROSE_COLORS = [ROSE_RED, ROSE_RED, ROSE_PINK, ROSE_RED, ROSE_RED, ROSE_PINK, ROSE_RED, ROSE_RED,
+               ROSE_PINK, ROSE_RED]
 
 
 def norm(v):
@@ -91,7 +96,10 @@ def build_scene():
                  base[2] + (neck[2] - base[2]) * t)
             pts.append((p[0], p[1], p[2], axis[0], 0.0, axis[2], GREENS, -0.15, True, None))
 
-        if idx in tulip_slots:
+        if FLOWERS == "roses":
+            flowers.append((pos, "rose", ROSE_COLORS[idx % len(ROSE_COLORS)], None, 0,
+                            rnd.uniform(0.13, 0.15), rnd.uniform(0, 6.28)))
+        elif idx in tulip_slots:
             n_t = len([k for k in tulip_slots if k < idx])
             flowers.append((pos, "tulip", TULIP_COLORS[n_t % len(TULIP_COLORS)], None, 0,
                             0.11, rnd.uniform(0, 6.28)))
@@ -266,7 +274,22 @@ def render(scene, t, cols, rows, hearts):
             dy = (row + 0.5 - fy) / ry
             for col in range(int(fx - rx) - 1, int(fx + rx) + 2):
                 dx = (col + 0.5 - fx) / rx
-                if kind == "disc":
+                if kind == "rose":
+                    s = math.sqrt(dx * dx + dy * dy)
+                    ph = math.atan2(dy, dx)
+                    reach = 0.86 + 0.14 * abs(math.cos(2.5 * (ph + rot)))
+                    if s > reach:
+                        continue
+                    # petals wrap inward as a spiral; the seams between them are darker
+                    spiral = s * 3.0 - (ph + rot) / (2 * math.pi)
+                    frac = spiral - math.floor(spiral)
+                    seam = -0.38 if frac < 0.2 else 0.0
+                    cup = -0.3 * (1 - s / reach) ** 2
+                    b = 0.78 - 0.2 * dx - 0.25 * dy + cup + seam + dim
+                    b = min(0.999, max(0.0, b))
+                    ch = "@" if s < 0.12 else PETAL_SHADE[int(b * len(PETAL_SHADE))]
+                    plot(col, row, zt + 0.05 * (1 - s), ch, pal[int(b * len(pal))])
+                elif kind == "disc":
                     s = math.sqrt(dx * dx + dy * dy)
                     if s > 1.0:
                         continue
