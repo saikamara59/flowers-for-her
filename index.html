@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>for you ♥</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0c0c0e; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; height: 100dvh; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// Web version of bouquet3d.py. Add ?msg=Your+text to the URL to change the message.
+const params = new URLSearchParams(location.search);
+const MESSAGE = params.get("msg") || "for you ♥";
+const SIGNATURE = "@sai.py";
+const SPIN_SPEED = 0.6, TILT = 0.30, CAM_DIST = 4.0, NUM_HEARTS = 18, PIVOT_Y = 0.2;
+
+const GREENS = [22, 28, 28, 34, 35, 71, 77, 114];
+const PAPER = [101, 144, 187, 223, 230, 231];
+const RIBBON = [88, 125, 161, 197, 204, 211];
+const HEART_COLORS = [161, 197, 204, 205, 211, 218];
+const MSG_COLORS = [161, 168, 205, 211, 218, 225, 218, 211, 205, 168];
+const ROSE_RED = [52, 88, 124, 160, 196, 197, 203];
+const ROSE_PINK = [89, 125, 162, 168, 205, 211, 218];
+const ROSE_COLORS = [ROSE_RED, ROSE_RED, ROSE_PINK, ROSE_RED, ROSE_RED, ROSE_PINK, ROSE_RED,
+                     ROSE_RED, ROSE_PINK, ROSE_RED];
+const SHADE = ".:-=+*%@", PETAL_SHADE = "+*#%";
+
+const Ln = Math.hypot(-0.45, 0.6, 0.66);
+const LX = -0.45 / Ln, LY = 0.6 / Ln, LZ = 0.66 / Ln;
+
+// xterm 256-color code -> CSS color
+const XTERM = (() => {
+  const base = ["#000000","#cd0000","#00cd00","#cdcd00","#0000ee","#cd00cd","#00cdcd","#e5e5e5",
+                "#7f7f7f","#ff0000","#00ff00","#ffff00","#5c5cff","#ff00ff","#00ffff","#ffffff"];
+  const out = [], lv = [0, 95, 135, 175, 215, 255];
+  for (let n = 0; n < 256; n++) {
+    if (n < 16) out.push(base[n]);
+    else if (n >= 232) { const v = 8 + (n - 232) * 10; out.push(`rgb(${v},${v},${v})`); }
+    else { const m = n - 16; out.push(`rgb(${lv[Math.floor(m / 36)]},${lv[Math.floor(m / 6) % 6]},${lv[m % 6]})`); }
+  }
+  return out;
+})();
+
+function mulberry32(a) {
+  return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+const norm = v => { const m = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / m, v[1] / m, v[2] / m]; };
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const add = (p, d, k) => [p[0] + d[0] * k, p[1] + d[1] * k, p[2] + d[2] * k];
+const clamp = b => Math.min(0.999, Math.max(0, b));
+
+function buildScene() {
+  const rnd = mulberry32(21), uni = (a, b) => a + (b - a) * rnd();
+  const pts = [], flowers = [];
+  const neck = [0, -0.12, 0], C = [0, 0.12, 0], D = 0.64, N = 10;
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < N; i++) {
+    const el = (88 - 60 * Math.sqrt(i / (N - 1))) * Math.PI / 180, az = i * golden;
+    const d = [Math.cos(el) * Math.cos(az), Math.sin(el), Math.cos(el) * Math.sin(az)];
+    const pos = add(C, d, D * uni(0.92, 1.05)), axis = norm(d);
+    const base = add(pos, axis, -0.03);
+    for (let j = 0; j < 70; j++) {
+      const t = j / 69;
+      pts.push([base[0] + (neck[0] - base[0]) * t, base[1] + (neck[1] - base[1]) * t,
+                base[2] + (neck[2] - base[2]) * t, axis[0], 0, axis[2], GREENS, -0.15, true, null]);
+    }
+    flowers.push([pos, ROSE_COLORS[i % ROSE_COLORS.length], uni(0.105, 0.12), uni(0, 6.28)]);
+  }
+  for (let i = 0; i < 8; i++) {   // leaves
+    const a = (i + 0.4) / 8 * 2 * Math.PI, c = Math.cos(a), s = Math.sin(a);
+    const base = [0.26 * c, 0.30, 0.26 * s], d = norm([c, 0.15, s]), side = [-s, 0, c];
+    const n = norm(cross(side, d)), L = 0.30, W = 0.07;
+    for (let ti = 0; ti < 32; ti++) {
+      const t = ti / 31;
+      for (let wi = -5; wi <= 5; wi++) {
+        const w = wi / 5, curl = 0.025 * w * w, sw = W * Math.sin(Math.PI * t) * w;
+        pts.push([base[0] + d[0] * L * t + side[0] * sw + n[0] * curl,
+                  base[1] + d[1] * L * t - 0.10 * t * t + n[1] * curl,
+                  base[2] + d[2] * L * t + side[2] * sw + n[2] * curl,
+                  n[0], n[1], n[2], GREENS, wi === 0 ? -0.25 : 0, true, null]);
+      }
+    }
+  }
+  const y0 = -0.20, y1 = 0.30, r0 = 0.06, r1 = 0.36, k = (r1 - r0) / (y1 - y0);
+  for (let i = 0; i < 50; i++) {   // paper wrap
+    const t = i / 49, r = r0 + (r1 - r0) * t, count = Math.max(8, Math.floor(170 * r));
+    for (let j = 0; j < count; j++) {
+      const ph = (j + rnd()) / count * 2 * Math.PI, c = Math.cos(ph), s = Math.sin(ph);
+      let y = y0 + (y1 - y0) * t;
+      if (t > 0.9) y += 0.03 * Math.sin(9 * ph);
+      const fold = 0.3 * (Math.abs(Math.sin(5 * ph)) - 0.6), nn = norm([c, -k, s]);
+      pts.push([r * c, y, r * s, nn[0], nn[1], nn[2], PAPER, fold, false, null]);
+    }
+  }
+  for (let i = 0; i < 7; i++) {   // stems below the wrap
+    const a = i / 7 * 2 * Math.PI, sx = 0.025 * Math.cos(a), sz = 0.025 * Math.sin(a);
+    for (let j = 0; j < 40; j++) {
+      const t = j / 39;
+      pts.push([sx * (1 + 1.2 * t), -0.20 - 0.30 * t, sz * (1 + 1.2 * t),
+                Math.cos(a), 0, Math.sin(a), GREENS, -0.1, true, null]);
+    }
+  }
+  const by = -0.12, br = r0 + k * (by - y0) + 0.01;   // ribbon
+  for (let j = 0; j < 90; j++) {
+    const ph = j / 90 * 2 * Math.PI;
+    for (const dy of [-0.012, 0, 0.012])
+      pts.push([br * Math.cos(ph), by + dy, br * Math.sin(ph), Math.cos(ph), 0, Math.sin(ph), RIBBON, 0, false, null]);
+  }
+  const knot = [0, by, br + 0.01];
+  for (const side of [-1, 1]) {
+    for (let j = 0; j < 70; j++) {
+      const a = j / 70 * 2 * Math.PI, lx = side * (0.07 + 0.07 * Math.cos(a));
+      const ly = 0.04 * Math.sin(a) + 0.02 * (0.07 + 0.07 * Math.cos(a)) / 0.14;
+      for (const fill of [1.0, 0.7])
+        pts.push([knot[0] + lx * fill, knot[1] + ly * fill, knot[2] + 0.01, side * 0.3, 0.2, 0.93, RIBBON, 0.1, true, null]);
+    }
+    for (let j = 0; j < 30; j++) {
+      const t = j / 29;
+      pts.push([knot[0] + side * 0.06 * t, knot[1] - 0.15 * t, knot[2] + 0.015,
+                side * 0.2, 0, 0.98, RIBBON, -0.05 + 0.05 * Math.sin(t * 9), true, null]);
+    }
+  }
+  for (const dx of [-0.01, 0, 0.01]) pts.push([dx, by, knot[2] + 0.02, 0, 0, 1, RIBBON, 0.2, true, "@"]);
+
+  const babies = [];
+  for (let i = 0; i < 90; i++) {
+    const a = rnd() * 2 * Math.PI, el = uni(0.3, 1.4), rr = uni(0.40, 0.58);
+    babies.push([rr * Math.cos(a) * Math.cos(el), C[1] + rr * Math.sin(el), rr * Math.sin(a) * Math.cos(el), uni(0, 6.28)]);
+  }
+  const sparkles = [];
+  for (let i = 0; i < 30; i++) {
+    const a = rnd() * 2 * Math.PI, rr = uni(0.75, 0.95);
+    sparkles.push([rr * Math.cos(a), uni(-0.3, 1.0), rr * Math.sin(a), uni(0, 6.28), uni(1.5, 4.0)]);
+  }
+  return { pts, flowers, babies, sparkles };
+}
+
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+function updateHearts(hearts, dt) {
+  while (hearts.length < NUM_HEARTS)
+    hearts.push([Math.random(), 1 + Math.random(), 0.03 + Math.random() * 0.05, Math.random() * 6.28, pick(HEART_COLORS)]);
+  for (const h of hearts) {
+    h[1] -= h[2] * dt;
+    if (h[1] < 0) { h[0] = Math.random(); h[1] = 1; h[4] = pick(HEART_COLORS); }
+  }
+}
+
+function render(scene, t, cols, rows, hearts) {
+  const chars = new Array(cols * rows).fill(" "), colors = new Int16Array(cols * rows);
+  const zbuf = new Float32Array(cols * rows).fill(-1e9);
+  const viewRows = rows - 2;
+  const scale = Math.max(1, Math.min((viewRows - 2) / 1.45, (cols - 2) / 2.7)), sxs = scale * 2;
+  const cx = cols / 2, cy = 1 + 0.78 * scale;
+  const ang = t * SPIN_SPEED, ca = Math.cos(ang), sa = Math.sin(ang), ct = Math.cos(TILT), st = Math.sin(TILT);
+
+  const proj = (x, y, z) => {
+    const xr = x * ca - z * sa, zr = x * sa + z * ca, yp = y - PIVOT_Y;
+    const yt = yp * ct - zr * st, zt = yp * st + zr * ct, f = CAM_DIST / (CAM_DIST - zt);
+    return [cx + xr * f * sxs, cy - yt * f * scale, zt, f];
+  };
+  const plot = (col, row, z, ch, color) => {
+    if (row >= 0 && row < viewRows && col >= 0 && col < cols) {
+      const i = row * cols + col;
+      if (z > zbuf[i]) { zbuf[i] = z; chars[i] = ch; colors[i] = color; }
+    }
+  };
+
+  for (const [x, y, , phase, color] of hearts) {
+    const col = ((Math.floor((x + 0.015 * Math.sin(t * 1.2 + phase)) * cols) % cols) + cols) % cols;
+    plot(col, Math.floor(y * viewRows), -50, "♥", color);
+  }
+  for (const [x, y, z, nx, ny, nz, pal, tone, twoSided, override] of scene.pts) {
+    const [fx, fy, zt] = proj(x, y, z);
+    const nxr = nx * ca - nz * sa, nzr = nx * sa + nz * ca;
+    const nyt = ny * ct - nzr * st, nzt = ny * st + nzr * ct;
+    let dot = nxr * LX + nyt * LY + nzt * LZ;
+    if (twoSided && dot < 0) dot = -dot * 0.55;
+    const b = clamp(0.25 + 0.75 * Math.max(0, dot) + tone);
+    plot(Math.trunc(fx), Math.trunc(fy), zt, override || SHADE[Math.floor(b * SHADE.length)], pal[Math.floor(b * pal.length)]);
+  }
+  for (const [[x, y, z], pal, R, seed] of scene.flowers) {
+    const [fx, fy, zt, f] = proj(x, y, z);
+    const rx = R * f * sxs, ry = R * f * scale;
+    const dim = -0.4 * (1 - Math.min(1, Math.max(0, (zt + 0.6) / 1.2)));
+    const rot = seed + ang * 0.7;
+    for (let row = Math.trunc(fy - ry) - 1; row < Math.trunc(fy + ry) + 2; row++) {
+      const dy = (row + 0.5 - fy) / ry;
+      for (let col = Math.trunc(fx - rx) - 1; col < Math.trunc(fx + rx) + 2; col++) {
+        const dx = (col + 0.5 - fx) / rx, s = Math.hypot(dx, dy), ph = Math.atan2(dy, dx);
+        const reach = 0.86 + 0.14 * Math.abs(Math.cos(2.5 * (ph + rot)));
+        if (s > reach) continue;
+        // petals wrap inward as a spiral; the seams between them are darker
+        const spiral = s * 2.4 - (ph + rot) / (2 * Math.PI), frac = spiral - Math.floor(spiral);
+        const seam = frac < 0.24 ? -0.5 : 0, rim = s > reach - 0.13 ? -0.45 : 0;
+        const cup = -0.3 * (1 - s / reach) ** 2;
+        const b = clamp(0.8 - 0.2 * dx - 0.25 * dy + cup + seam + rim + dim);
+        plot(col, row, zt + 0.05 * (1 - s), s < 0.12 ? "@" : PETAL_SHADE[Math.floor(b * PETAL_SHADE.length)], pal[Math.floor(b * pal.length)]);
+      }
+    }
+  }
+  for (const [x, y, z, phase] of scene.babies) {
+    const [fx, fy, zt] = proj(x, y, z), star = Math.sin(t * 2 + phase) > 0.6;
+    plot(Math.trunc(fx), Math.trunc(fy), zt + 0.02, star ? "*" : "·", star ? 231 : 255);
+  }
+  for (const [x, y, z, phase, speed] of scene.sparkles) {
+    const [fx, fy, zt] = proj(x, y, z), tw = Math.sin(t * speed + phase);
+    const col = Math.trunc(fx), row = Math.trunc(fy);
+    if (tw > 0.85) plot(col, row, zt, "*", 231);
+    else if (tw > 0.4) plot(col, row, zt, "+", 225);
+    else if (tw > 0) plot(col, row, zt, "·", 218);
+  }
+  const writeLine = (text, row, colorAt) => {
+    const glyphs = [...text], start = Math.max(0, Math.floor((cols - glyphs.length) / 2));
+    glyphs.forEach((ch, i) => { if (start + i < cols) { chars[row * cols + start + i] = ch; colors[row * cols + start + i] = colorAt(i); } });
+  };
+  const shift = Math.floor(t * 6);
+  writeLine(MESSAGE, rows - 2, i => MSG_COLORS[(i + shift) % MSG_COLORS.length]);
+  writeLine(SIGNATURE, rows - 3, () => 218);
+  return { chars, colors };
+}
+
+const canvas = document.getElementById("c"), ctx = canvas.getContext("2d");
+const scene = buildScene(), hearts = [];
+let cols, rows, cw, chh, fontPx;
+
+function resize() {
+  const W = window.innerWidth, H = window.innerHeight, dpr = window.devicePixelRatio || 1;
+  // cells are about twice as tall as wide, like a terminal
+  fontPx = Math.max(7, Math.min(16, Math.min(W / (0.6 * 110), H / (1.2 * 56))));
+  cw = fontPx * 0.6; chh = fontPx * 1.2;
+  cols = Math.max(20, Math.floor(W / cw)); rows = Math.max(12, Math.floor(H / chh));
+  canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener("resize", resize);
+resize();
+
+const start = performance.now();
+let last = start;
+function frame(now) {
+  const dt = (now - last) / 1000; last = now;
+  updateHearts(hearts, Math.min(dt, 0.1));
+  // on tall screens (phones), only use as many rows as the bouquet needs and center them
+  const used = Math.min(rows, Math.ceil(1.45 * Math.max(1, (cols - 2) / 2.7) + 8));
+  const offY = Math.floor((rows - used) / 2) * chh;
+  const { chars, colors } = render(scene, (now - start) / 1000, cols, used, hearts);
+  ctx.fillStyle = "#0c0c0e";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.font = `${fontPx}px Menlo, Consolas, "DejaVu Sans Mono", monospace`;
+  ctx.textBaseline = "top";
+  const offX = (window.innerWidth - cols * cw) / 2;
+  for (let r = 0; r < used; r++)
+    for (let c = 0; c < cols; c++) {
+      const i = r * cols + c, ch = chars[i];
+      if (ch === " ") continue;
+      ctx.fillStyle = XTERM[colors[i]];
+      ctx.fillText(ch, offX + c * cw, offY + r * chh);
+    }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

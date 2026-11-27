@@ -6,7 +6,13 @@ A spinning 3D bouquet of roses that runs right in your terminal, wrapped in pape
   <img src="screenshot.png" alt="the bouquet running in a terminal" width="600">
 </p>
 
-## Run it
+## See it in your browser
+
+Open **https://saikamara59.github.io/flowers-for-her/**. It works on phones too.
+
+To change the message, add `?msg=` to the link, for example `https://saikamara59.github.io/flowers-for-her/?msg=Happy+birthday+♥`.
+
+## Run it in your terminal
 
 You just need Python 3. There are no packages to install.
 
