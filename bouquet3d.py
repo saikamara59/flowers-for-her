@@ -98,7 +98,7 @@ def build_scene():
 
         if FLOWERS == "roses":
             flowers.append((pos, "rose", ROSE_COLORS[idx % len(ROSE_COLORS)], None, 0,
-                            rnd.uniform(0.13, 0.15), rnd.uniform(0, 6.28)))
+                            rnd.uniform(0.105, 0.12), rnd.uniform(0, 6.28)))
         elif idx in tulip_slots:
             n_t = len([k for k in tulip_slots if k < idx])
             flowers.append((pos, "tulip", TULIP_COLORS[n_t % len(TULIP_COLORS)], None, 0,
@@ -281,11 +281,12 @@ def render(scene, t, cols, rows, hearts):
                     if s > reach:
                         continue
                     # petals wrap inward as a spiral; the seams between them are darker
-                    spiral = s * 3.0 - (ph + rot) / (2 * math.pi)
+                    spiral = s * 2.4 - (ph + rot) / (2 * math.pi)
                     frac = spiral - math.floor(spiral)
-                    seam = -0.38 if frac < 0.2 else 0.0
+                    seam = -0.5 if frac < 0.24 else 0.0
+                    rim = -0.45 if s > reach - 0.13 else 0.0
                     cup = -0.3 * (1 - s / reach) ** 2
-                    b = 0.78 - 0.2 * dx - 0.25 * dy + cup + seam + dim
+                    b = 0.8 - 0.2 * dx - 0.25 * dy + cup + seam + rim + dim
                     b = min(0.999, max(0.0, b))
                     ch = "@" if s < 0.12 else PETAL_SHADE[int(b * len(PETAL_SHADE))]
                     plot(col, row, zt + 0.05 * (1 - s), ch, pal[int(b * len(pal))])
