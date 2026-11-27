@@ -322,12 +322,12 @@ def render(scene, t, cols, rows, hearts):
         if start + i < cols:
             chars[mrow][start + i] = ch
             colors[mrow][start + i] = MSG_COLORS[(i + shift) % len(MSG_COLORS)]
-    hint = "@alishsharma on tiktok!"
-    hstart = max(0, (cols - len(hint)) // 2)
-    for i, ch in enumerate(hint):
-        if hstart + i < cols:
-            chars[rows - 1][hstart + i] = ch
-            colors[rows - 1][hstart + i] = 238
+    sig = "@sai.py"
+    sstart = max(0, (cols - len(sig)) // 2)
+    for i, ch in enumerate(sig):
+        if sstart + i < cols:
+            chars[mrow - 1][sstart + i] = ch
+            colors[mrow - 1][sstart + i] = 218
 
     lines = []
     for r in range(rows):
